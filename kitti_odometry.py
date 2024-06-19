@@ -297,7 +297,7 @@ class KittiEvalOdom():
         plt.xlabel('x (m)', fontsize=fontsize_)
         plt.ylabel('z (m)', fontsize=fontsize_)
         fig.set_size_inches(10, 10)
-        png_title = "sequence_{:02}".format(seq)
+        png_title = f"sequence_{seq}"
         fig_pdf = self.plot_path_dir + "/" + png_title + ".pdf"
         plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
         plt.close(fig)
@@ -324,7 +324,7 @@ class KittiEvalOdom():
         plt.xlabel('Path Length (m)', fontsize=fontsize_)
         plt.legend(loc="upper right", prop={'size': fontsize_})
         fig.set_size_inches(5, 5)
-        fig_pdf = self.plot_error_dir + "/trans_err_{:02}.pdf".format(seq)
+        fig_pdf = f"{self.plot_error_dir}/trans_err_{seq}.pdf"
         plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
         plt.close(fig)
 
@@ -344,7 +344,7 @@ class KittiEvalOdom():
         plt.xlabel('Path Length (m)', fontsize=fontsize_)
         plt.legend(loc="upper right", prop={'size': fontsize_})
         fig.set_size_inches(5, 5)
-        fig_pdf = self.plot_error_dir + "/rot_err_{:02}.pdf".format(seq)
+        fig_pdf = f"{self.plot_error_dir}/rot_err_{seq}.pdf"
         plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
         plt.close(fig)
 
@@ -375,7 +375,7 @@ class KittiEvalOdom():
         plt.axis([np.min(plot_x), np.max(plot_x), 0, np.max(plot_y_r)*(1+0.1)])
         plt.xlabel('Speed (km/h)',fontsize = fontsize_)
         plt.ylabel('Rotation Error (deg/m)',fontsize = fontsize_)
-        png_title = "{}_error_speed".format(seq)
+        png_title = f"{seq}_error_speed"
         plt.savefig(self.plot_error_dir +  "/" + png_title + ".png", bbox_inches='tight', pad_inches=0.1)
         # plt.show()
 
@@ -533,7 +533,7 @@ class KittiEvalOdom():
         """
         ave_t_err, ave_r_err, ate, rpe_trans, rpe_rot = errs
         lines = []
-        lines.append("Sequence: \t {} \n".format(seq) )
+        lines.append(f"Sequence: \t {seq} \n" )
         lines.append("Trans. err. (%): \t {:.3f} \n".format(ave_t_err*100))
         lines.append("Rot. err. (deg/100m): \t {:.3f} \n".format(ave_r_err/np.pi*180*100))
         lines.append("ATE (m): \t {:.3f} \n".format(ate))
@@ -573,7 +573,7 @@ class KittiEvalOdom():
         error_dir = result_dir + "/errors"
         self.plot_path_dir = result_dir + "/plot_path"
         self.plot_error_dir = result_dir + "/plot_error"
-        result_txt = os.path.join(result_dir, "result.txt")
+        result_txt = os.path.join(result_dir, "result")
         f = open(result_txt, 'w')
 
         if not os.path.exists(error_dir):
@@ -586,17 +586,17 @@ class KittiEvalOdom():
         # Create evaluation list
         if seqs is None:
             available_seqs = sorted(glob(os.path.join(result_dir, "*.txt")))
-            self.eval_seqs = [int(i[-6:-4]) for i in available_seqs if i[-6:-4] in seq_list]
+            self.eval_seqs = [os.path.splitext(os.path.basename(i))[0] for i in available_seqs]
         else:
             self.eval_seqs = seqs
 
         all_seq_err = []
         # evaluation
         for i in self.eval_seqs:
-            self.cur_seq = i
+            # self.cur_seq = i
             # Read pose txt
-            self.cur_seq = '{:02}'.format(i)
-            file_name = '{:02}.txt'.format(i)
+            # self.cur_seq = '{:02}'.format(i)
+            file_name = f"{i}.txt"
 
             poses_result = self.load_poses_from_txt(result_dir+"/"+file_name)
             poses_gt = self.load_poses_from_txt(self.gt_dir + "/" + file_name)
@@ -675,7 +675,7 @@ class KittiEvalOdom():
             
         f.close()    
 
-        i = 99
+        i = "average"
         # Compute overall errors
         avg_segment_errs = self.compute_segment_error(all_seq_err)
         avg_speed_errs   = self.computeSpeedErr(all_seq_err)
