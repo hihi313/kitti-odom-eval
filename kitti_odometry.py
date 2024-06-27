@@ -223,7 +223,7 @@ class KittiEvalOdom():
                 speed = len_/(0.1*num_frames)
 
                 err.append([first_frame, r_err/len_, t_err/len_, len_, speed])
-        return err
+        return err, dist[-1]
         
     def save_sequence_errors(self, err, file_name):
         """Save sequence error
@@ -258,7 +258,6 @@ class KittiEvalOdom():
                 t_err += item[2]
             ave_t_err = t_err / seq_len
             ave_r_err = r_err / seq_len
-            print(f"#Errors: {seq_len}")
             return ave_t_err, ave_r_err
         else:
             return 0, 0
@@ -356,6 +355,7 @@ class KittiEvalOdom():
         plot_y_t = []
         plot_y_r = []
         plot_x = []
+
         for idx, value in avg_speed_errs.items():
             if value == []:
                 continue
@@ -363,16 +363,21 @@ class KittiEvalOdom():
             plot_y_t.append(value[0] * 100)
             plot_y_r.append(value[1]/np.pi * 180)
         
+        min_plot_x = np.min(plot_x) if len(plot_x) > 0 else 0
+        max_plot_x = np.max(plot_x) if len(plot_x) > 0 else 10
+        max_plot_y_t = np.max(plot_y_t)*(1+0.1) if len(plot_y_t) > 0 else 10
+        max_plot_y_r = np.max(plot_y_r)*(1+0.1) if len(plot_y_r) > 0 else 10
+
         fig = plt.figure(figsize=(15,6), dpi=100)
         plt.subplot(1,2,1)        
         plt.plot(plot_x, plot_y_t, 'ks-')
-        plt.axis([np.min(plot_x), np.max(plot_x), 0, np.max(plot_y_t)*(1+0.1)])
+        plt.axis([min_plot_x, max_plot_x, 0, max_plot_y_t])
         plt.xlabel('Speed (km/h)',fontsize = fontsize_)
         plt.ylabel('Translation Error (%)',fontsize = fontsize_)
 
         plt.subplot(1,2,2)
         plt.plot(plot_x, plot_y_r, 'ks-')
-        plt.axis([np.min(plot_x), np.max(plot_x), 0, np.max(plot_y_r)*(1+0.1)])
+        plt.axis([min_plot_x, max_plot_x, 0, max_plot_y_r])
         plt.xlabel('Speed (km/h)',fontsize = fontsize_)
         plt.ylabel('Rotation Error (deg/m)',fontsize = fontsize_)
         png_title = f"{seq}_error_speed"
@@ -524,7 +529,7 @@ class KittiEvalOdom():
             pred_updated[i][:3, 3] *= scale
         return pred_updated
     
-    def write_result(self, f, seq, errs):
+    def write_result(self, f, seq, errs, other_info):
         """Write result into a txt file
         Args:
             f (IOWrapper)
@@ -538,7 +543,10 @@ class KittiEvalOdom():
         lines.append("Rot. err. (deg/100m): \t {:.3f} \n".format(ave_r_err/np.pi*180*100))
         lines.append("ATE (m): \t {:.3f} \n".format(ate))
         lines.append("RPE (m): \t {:.3f} \n".format(rpe_trans))
-        lines.append("RPE (deg): \t {:.3f} \n\n".format(rpe_rot * 180 /np.pi))
+        lines.append("RPE (deg): \t {:.3f} \n".format(rpe_rot * 180 /np.pi))
+        for k, v in other_info.items():
+            lines.append(f"{k}: \t {v} \n")
+        lines.append("\n")
         for line in lines:
             f.writelines(line)
 
@@ -634,8 +642,7 @@ class KittiEvalOdom():
                         poses_result[cnt] = align_transformation @ poses_result[cnt]
 
             # compute sequence errors
-            seq_err = self.calc_sequence_errors(poses_gt, poses_result)
-            print(f"GT len: {len(poses_gt)}, Pred len: {len(poses_result)}")
+            seq_err, traj_dist = self.calc_sequence_errors(poses_gt, poses_result)
             self.save_sequence_errors(seq_err, error_dir + "/" + file_name)
 
             # Compute segment errors
@@ -645,6 +652,9 @@ class KittiEvalOdom():
             # compute overall error
             ave_t_err, ave_r_err = self.compute_overall_err(seq_err)
             print("Sequence: " + str(i))
+            print(f"Seq. dist(m): {traj_dist}")
+            print(f"#GT: {len(poses_gt)}, #Pred: {len(poses_result)}")
+            print(f"#Errors: {len(seq_err)}")
             print("Translational error (%): ", ave_t_err*100)
             print("Rotational error (deg/100m): ", ave_r_err/np.pi*180*100)
             ave_t_errs.append(ave_t_err)
@@ -668,7 +678,13 @@ class KittiEvalOdom():
             self.plotError_speed(i, avg_speed_errs)
 
             # Save result summary
-            self.write_result(f, i, [ave_t_err, ave_r_err, ate, rpe_trans, rpe_rot])
+            self.write_result(f, i, [ave_t_err, ave_r_err, ate, rpe_trans, rpe_rot], 
+                              {
+                                "Seq. dist(m)": traj_dist,
+                                "#GT": len(poses_gt),
+                                "#Pred": len(poses_result),
+                                "#Errors": len(seq_err)
+                              })
 
             # Concate to all sequence errors
             all_seq_err += seq_err
